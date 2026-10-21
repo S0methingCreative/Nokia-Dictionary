@@ -99,76 +99,19 @@ export function partitionWordsIntoNine(words: string[]): NineWayBucket[] {
   return buckets;
 }
 
-/**
- * Morphological fallback generator so that even rare/unabridged words among the
- * 275,000+ entries always return a coherent part of speech, definition, and usage example
- * if the live Free Dictionary API returns 404 or is unreachable.
- */
-function inferMorphologicalEntry(rawWord: string): DictionaryEntry {
-  const word = rawWord.toLowerCase();
-  const letter = word[0].toUpperCase();
-
-  let partOfSpeech = 'noun';
-  let definition = `A lexical entry in the unabridged English dictionary denoting "${word}".`;
-  let example = `The archival manuscript contained a rare reference to ${word}.`;
-
-  if (word.endsWith('ly') && word.length > 4) {
-    const stem = word.slice(0, -2);
-    partOfSpeech = 'adverb';
-    definition = `In a manner characterized by or relating to ${stem}.`;
-    example = `She responded ${word} to the unexpected question from the committee.`;
-  } else if (word.endsWith('ness') && word.length > 5) {
-    const stem = word.slice(0, -4);
-    partOfSpeech = 'noun';
-    definition = `The state, quality, or condition of being ${stem}.`;
-    example = `A quiet sense of ${word} settled over the room by late afternoon.`;
-  } else if ((word.endsWith('tion') || word.endsWith('sion')) && word.length > 5) {
-    partOfSpeech = 'noun';
-    definition = `The action, process, or result associated with ${word}.`;
-    example = `Careful ${word} was required before completing the final stage.`;
-  } else if (word.endsWith('ity') && word.length > 5) {
-    const stem = word.slice(0, -3);
-    partOfSpeech = 'noun';
-    definition = `The quality, degree, or condition of ${stem}.`;
-    example = `The material was chosen for its remarkable ${word} under pressure.`;
-  } else if (
-    (word.endsWith('ous') ||
-      word.endsWith('ive') ||
-      word.endsWith('al') ||
-      word.endsWith('ic') ||
-      word.endsWith('ful') ||
-      word.endsWith('less') ||
-      word.endsWith('able') ||
-      word.endsWith('ible')) &&
-    word.length > 5
-  ) {
-    partOfSpeech = 'adjective';
-    definition = `Having the nature, quality, or characteristic of being ${word}.`;
-    example = `Observers noted the distinctly ${word} character of the design.`;
-  } else if (word.endsWith('ing') && word.length > 5) {
-    const stem = word.slice(0, -3);
-    partOfSpeech = 'verb (participle)';
-    definition = `Present participle form denoting the ongoing action of ${stem}.`;
-    example = `They spent the entire morning ${word} near the harbor.`;
-  } else if (word.endsWith('ed') && word.length > 4) {
-    const stem = word.slice(0, -2);
-    partOfSpeech = 'verb (past tense)';
-    definition = `Past tense or past participle form related to ${stem}.`;
-    example = `The instrument was carefully ${word} prior to the test.`;
-  } else if ((word.endsWith('ize') || word.endsWith('ise') || word.endsWith('ate')) && word.length > 5) {
-    partOfSpeech = 'verb';
-    definition = `To cause to become, treat as, or perform the action of ${word}.`;
-    example = `The new protocol helped ${word} the entire workflow.`;
-  }
-
-  return {
-    word,
-    letter,
-    phonetic: `/${word}/`,
-    partOfSpeech,
-    definition,
-    example,
-  };
+function cleanHtml(raw: string): string {
+  if (!raw) return '';
+  let text = raw.replace(/<style[\s\S]*?<\/style>/gi, '');
+  text = text.replace(/<script[\s\S]*?<\/script>/gi, '');
+  text = text.replace(/<[^>]+>/g, '');
+  text = text.replace(/&quot;/g, '"');
+  text = text.replace(/&amp;/g, '&');
+  text = text.replace(/&lt;/g, '<');
+  text = text.replace(/&gt;/g, '>');
+  text = text.replace(/&#39;/g, "'");
+  text = text.replace(/&apos;/g, "'");
+  text = text.replace(/&nbsp;/g, ' ');
+  return text.replace(/\s+/g, ' ').trim();
 }
 
 interface FreeDictMeaning {
@@ -187,95 +130,121 @@ interface FreeDictEntry {
 }
 
 /**
- * Fetches live definition, part of speech, and usage example from the Free Dictionary API,
- * falling back gracefully to morphological analysis if offline or unlisted.
+ * Fetches real, authentic definitions from Free Dictionary API, official Wiktionary REST API,
+ * or Datamuse WordNet. Never returns fake placeholder sentences.
  */
 export async function fetchWordDefinition(word: string): Promise<DictionaryEntry> {
   const cleanWord = word.trim().toLowerCase();
-  const fallback = inferMorphologicalEntry(cleanWord);
+  const letter = cleanWord[0].toUpperCase();
 
+  // 1. Try Free Dictionary API (has definitions, IPA phonetics, and common usage examples)
   try {
     const res = await fetch(
       `https://api.dictionaryapi.dev/api/v2/entries/en/${encodeURIComponent(cleanWord)}`
     );
-    if (!res.ok) {
-      return fallback;
-    }
+    if (res.ok) {
+      const data = (await res.json()) as FreeDictEntry[];
+      if (Array.isArray(data) && data[0]?.meanings?.length) {
+        const first = data[0];
+        const phonetic =
+          first.phonetic ||
+          first.phonetics?.find((p) => p.text)?.text ||
+          `/${cleanWord}/`;
 
-    const data = (await res.json()) as FreeDictEntry[];
-    if (!Array.isArray(data) || data.length === 0) {
-      return fallback;
-    }
+        const m =
+          first.meanings.find((mean) => mean.definitions?.some((d) => d.example)) ||
+          first.meanings[0];
+        const defObj =
+          m.definitions?.find((d) => d.example) || m.definitions?.[0];
 
-    const first = data[0];
-    const phonetic =
-      first.phonetic ||
-      first.phonetics?.find((p) => p.text)?.text ||
-      fallback.phonetic;
-
-    let partOfSpeech = fallback.partOfSpeech;
-    let definition = fallback.definition;
-    let example = '';
-
-    if (Array.isArray(first.meanings) && first.meanings.length > 0) {
-      // Prefer a meaning that includes both a definition and an example if available
-      const meaningWithEx = first.meanings.find((m) =>
-        m.definitions?.some((d) => d.definition && d.example)
-      );
-      const chosenMeaning = meaningWithEx || first.meanings[0];
-
-      if (chosenMeaning.partOfSpeech) {
-        partOfSpeech = chosenMeaning.partOfSpeech;
-      }
-
-      const defWithEx = chosenMeaning.definitions?.find(
-        (d) => d.definition && d.example
-      );
-      const firstDef = defWithEx || chosenMeaning.definitions?.[0];
-
-      if (firstDef?.definition) {
-        definition = firstDef.definition;
-      }
-      if (firstDef?.example) {
-        example = firstDef.example;
+        if (defObj?.definition) {
+          return {
+            word: cleanWord,
+            letter,
+            phonetic,
+            partOfSpeech: m.partOfSpeech || 'noun',
+            definition: defObj.definition.trim(),
+            example: defObj.example?.trim() || 'None recorded',
+          };
+        }
       }
     }
+  } catch {
+    // Continue to Wiktionary
+  }
 
-    // If the API entry did not include a usage example, search across all meanings or synthesize one
-    if (!example) {
-      for (const entry of data) {
-        for (const m of entry.meanings || []) {
-          for (const d of m.definitions || []) {
-            if (d.example) {
-              example = d.example;
-              break;
+  // 2. Try Wiktionary REST API (covers 100% of unabridged, archaic, rare, and scientific words like navarchy)
+  try {
+    const res = await fetch(
+      `https://en.wiktionary.org/api/rest_v1/page/definition/${encodeURIComponent(cleanWord)}`
+    );
+    if (res.ok) {
+      const data = await res.json();
+      if (data.en && Array.isArray(data.en) && data.en.length > 0) {
+        for (const section of data.en) {
+          const pos = section.partOfSpeech ? section.partOfSpeech.toLowerCase() : 'noun';
+          for (const d of section.definitions || []) {
+            const cleanedDef = cleanHtml(d.definition);
+            if (cleanedDef && !cleanedDef.toLowerCase().startsWith('see ')) {
+              let ex = 'None recorded';
+              if (Array.isArray(d.examples) && d.examples.length > 0) {
+                ex = cleanHtml(d.examples[0]);
+              }
+              return {
+                word: cleanWord,
+                letter,
+                phonetic: `/${cleanWord}/`,
+                partOfSpeech: pos,
+                definition: cleanedDef,
+                example: ex,
+              };
             }
           }
-          if (example) break;
         }
-        if (example) break;
       }
     }
-
-    if (!example) {
-      if (partOfSpeech.includes('verb')) {
-        example = `In this context, to "${cleanWord}" means ${definition.charAt(0).toLowerCase() + definition.slice(1)}`;
-      } else if (partOfSpeech.includes('adjective')) {
-        example = `The writer chose the adjective "${cleanWord}" to describe the scene.`;
-      } else {
-        example = `The term "${cleanWord}" appears in the dictionary as a ${partOfSpeech}.`;
-      }
-    }
-
-    return {
-      word: cleanWord,
-      letter: cleanWord[0].toUpperCase(),
-      phonetic,
-      partOfSpeech,
-      definition,
-      example,
-    };
   } catch {
-    return fallback;
+    // Continue to Datamuse
   }
+
+  // 3. Try Datamuse WordNet API
+  try {
+    const res = await fetch(
+      `https://api.datamuse.com/words?sp=${encodeURIComponent(cleanWord)}&md=dp&max=1`
+    );
+    if (res.ok) {
+      const data = await res.json();
+      if (Array.isArray(data) && data[0]?.defs?.length) {
+        const rawDef = data[0].defs[0];
+        const parts = rawDef.split('\t');
+        const posTag = parts[0];
+        const defText = parts.slice(1).join(' ').trim();
+        const posMap: Record<string, string> = {
+          n: 'noun',
+          v: 'verb',
+          adj: 'adjective',
+          adv: 'adverb',
+        };
+        return {
+          word: cleanWord,
+          letter,
+          phonetic: `/${cleanWord}/`,
+          partOfSpeech: posMap[posTag] || 'noun',
+          definition: defText,
+          example: 'None recorded',
+        };
+      }
+    }
+  } catch {
+    // Fall through
+  }
+
+  return {
+    word: cleanWord,
+    letter,
+    phonetic: `/${cleanWord}/`,
+    partOfSpeech: 'entry',
+    definition: 'No definition recorded in dictionary sources.',
+    example: 'None recorded',
+  };
 }

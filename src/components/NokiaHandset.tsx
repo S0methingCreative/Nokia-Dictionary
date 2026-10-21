@@ -225,9 +225,12 @@ export const NokiaHandset: React.FC<NokiaHandsetProps> = ({
                           <p className="text-[10px] leading-snug font-bold">
                             Def: {selectedWordEntry.definition}
                           </p>
-                          <p className="text-[10px] leading-snug italic">
-                            Ex: &ldquo;{selectedWordEntry.example}&rdquo;
-                          </p>
+                          {selectedWordEntry.example &&
+                            selectedWordEntry.example !== 'None recorded' && (
+                              <p className="text-[10px] leading-snug italic">
+                                Ex: &ldquo;{selectedWordEntry.example}&rdquo;
+                              </p>
+                            )}
                         </div>
                       )}
 

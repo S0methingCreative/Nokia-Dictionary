@@ -162,11 +162,14 @@ export default function App() {
     setSelectedWordEntry(entry);
     setCallStage('WORD_DEFINITION');
 
+    const exampleSpeech =
+      entry.example && entry.example !== 'None recorded'
+        ? ` Usage example: ${entry.example}.`
+        : '';
     const spokenEntry =
       `${entry.word}. ` +
       `Part of speech: ${entry.partOfSpeech}. ` +
-      `Definition: ${entry.definition} ` +
-      `Usage example: ${entry.example}`;
+      `Definition: ${entry.definition}.${exampleSpeech}`;
 
     soundEngine.speakOperatorText(spokenEntry, 150);
   }, []);
@@ -283,11 +286,14 @@ export default function App() {
       // 4. WORD_DEFINITION: If already viewing a definition, pressing 1 repeats it
       if (callStage === 'WORD_DEFINITION' && selectedWordEntry) {
         if (num === 1) {
+          const exampleSpeech =
+            selectedWordEntry.example && selectedWordEntry.example !== 'None recorded'
+              ? ` Usage example: ${selectedWordEntry.example}.`
+              : '';
           const spokenEntry =
             `${selectedWordEntry.word}. ` +
             `Part of speech: ${selectedWordEntry.partOfSpeech}. ` +
-            `Definition: ${selectedWordEntry.definition} ` +
-            `Usage example: ${selectedWordEntry.example}`;
+            `Definition: ${selectedWordEntry.definition}.${exampleSpeech}`;
           soundEngine.speakOperatorText(spokenEntry, 140);
         } else {
           setKeypadNotice('Press 1 to repeat, or C to end call.');
