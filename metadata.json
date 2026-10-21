@@ -1,0 +1,6 @@
+{
+  "name": "Nokia 3310 Tele-Dictionary",
+  "description": "An interactive classic Nokia 3310 cellphone face that calls an automated 1-9 keypad phone dictionary to look up definitions, parts of speech, and usage examples.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

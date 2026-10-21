@@ -1,0 +1,67 @@
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    --font-display: 'Outfit', sans-serif;
+    --font-sans: 'Plus Jakarta Sans', sans-serif;
+    --font-mono: 'IBM Plex Mono', monospace;
+  }
+
+  body {
+    font-family: var(--font-sans);
+    background-color: #0f172a;
+    color: #f8fafc;
+  }
+
+  h1, h2, h3, .font-display {
+    font-family: var(--font-display);
+  }
+
+  .font-mono {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+/* Monochrome Nokia 3310 LCD dot-matrix background texture */
+.nokia-lcd-surface {
+  background-color: #93b078;
+  background-image: 
+    radial-gradient(rgba(20, 36, 17, 0.08) 1px, transparent 0),
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.08) 0%, rgba(0, 0, 0, 0.06) 100%);
+  background-size: 3px 3px, 100% 100%;
+  color: #142311;
+  box-shadow:
+    inset 0 3px 6px rgba(15, 28, 12, 0.35),
+    inset 0 0 18px rgba(114, 148, 86, 0.45);
+}
+
+.nokia-lcd-off {
+  background-color: #6c7d5e;
+  background-image: radial-gradient(rgba(20, 36, 17, 0.06) 1px, transparent 0);
+  background-size: 3px 3px;
+  color: #1d2b1a;
+  box-shadow: inset 0 3px 6px rgba(15, 28, 12, 0.4);
+}
+
+/* Subtle custom scrollbars for LCD and transcript */
+.lcd-scroll::-webkit-scrollbar {
+  width: 4px;
+}
+.lcd-scroll::-webkit-scrollbar-track {
+  background: rgba(20, 35, 17, 0.12);
+}
+.lcd-scroll::-webkit-scrollbar-thumb {
+  background: rgba(20, 35, 17, 0.55);
+}
+
+.transcript-scroll::-webkit-scrollbar {
+  width: 6px;
+}
+.transcript-scroll::-webkit-scrollbar-track {
+  background: rgba(15, 23, 42, 0.4);
+}
+.transcript-scroll::-webkit-scrollbar-thumb {
+  background: rgba(100, 116, 139, 0.45);
+  border-radius: 3px;
+}
