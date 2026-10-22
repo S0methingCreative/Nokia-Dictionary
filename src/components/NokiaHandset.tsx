@@ -1,6 +1,6 @@
 import React, { useRef, useEffect } from 'react';
 import { Phone, PhoneOff, ChevronUp, ChevronDown } from 'lucide-react';
-import { DictionaryEntry } from '../data/dictionaryData';
+import { DictionaryEntry, TOTAL_DICTIONARY_WORDS } from '../data/dictionaryData';
 
 export type CallStage =
   | 'IDLE'
@@ -27,7 +27,6 @@ interface NokiaHandsetProps {
   menuOptions: LcdMenuOption[];
   selectedWordEntry: DictionaryEntry | null;
   keypadNotice: string | null;
-  totalWordsRemaining?: number;
   onPressTalk: () => void;
   onPressClear: () => void;
   onPressDigit: (digit: string) => void;
@@ -159,10 +158,10 @@ export const NokiaHandset: React.FC<NokiaHandsetProps> = ({
                       1-800-555-DICT
                     </div>
                     <p className="text-[13px] font-bold leading-tight mb-1">
-                      UNABRIDGED LEXICON
+                      ENGLISH DICTIONARY
                     </p>
                     <p className="text-[10px] leading-snug opacity-90 max-w-[235px]">
-                      Press TALK to call the automated 275,000-word dictionary.
+                      Press TALK to call the automated {TOTAL_DICTIONARY_WORDS.toLocaleString()}-word dictionary.
                     </p>
                   </div>
                 )}
@@ -200,9 +199,11 @@ export const NokiaHandset: React.FC<NokiaHandsetProps> = ({
                       </div>
 
                       {/* Operator Spoken Text */}
-                      <p className="text-[10px] leading-tight font-semibold">
-                        {operatorSubtext}
-                      </p>
+                      {operatorSubtext && (
+                        <p className="text-[10px] leading-tight font-semibold">
+                          {operatorSubtext}
+                        </p>
+                      )}
 
                       {/* Notice if caller pressed *, 0, #, or invalid key */}
                       {keypadNotice && (
@@ -211,9 +212,9 @@ export const NokiaHandset: React.FC<NokiaHandsetProps> = ({
                         </div>
                       )}
 
-                      {/* Selected Word Full Readout */}
+                      {/* Selected Word Full Readout (Definition & Part of Speech Only) */}
                       {callStage === 'WORD_DEFINITION' && selectedWordEntry && (
-                        <div className="border-t border-[#142311]/40 pt-1 mt-1 space-y-1">
+                        <div className="border-t border-[#142311]/40 pt-1.5 mt-1 space-y-1.5">
                           <div className="flex items-baseline justify-between gap-1">
                             <span className="text-[12px] font-bold uppercase tracking-tight">
                               {selectedWordEntry.word}
@@ -222,15 +223,9 @@ export const NokiaHandset: React.FC<NokiaHandsetProps> = ({
                               [{selectedWordEntry.partOfSpeech}]
                             </span>
                           </div>
-                          <p className="text-[10px] leading-snug font-bold">
-                            Def: {selectedWordEntry.definition}
+                          <p className="text-[11px] leading-snug font-bold">
+                            {selectedWordEntry.definition}
                           </p>
-                          {selectedWordEntry.example &&
-                            selectedWordEntry.example !== 'None recorded' && (
-                              <p className="text-[10px] leading-snug italic">
-                                Ex: &ldquo;{selectedWordEntry.example}&rdquo;
-                              </p>
-                            )}
                         </div>
                       )}
 
@@ -266,7 +261,7 @@ export const NokiaHandset: React.FC<NokiaHandsetProps> = ({
                 <span className="uppercase tracking-wider underline decoration-2">
                   {callStage === 'IDLE' ? 'TALK' : 'KEYS 1–9'}
                 </span>
-                <span className="opacity-85">275K WORDS</span>
+                <span className="opacity-85">37K WORDS</span>
               </div>
             </div>
           </div>

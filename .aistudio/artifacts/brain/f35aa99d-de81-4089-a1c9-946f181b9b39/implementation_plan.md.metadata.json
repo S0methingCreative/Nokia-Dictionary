@@ -1,6 +1,6 @@
 {
-  "summary":  "Reference guide clarifying that neither Jekyll nor the Static HTML starter template is needed, as the pre-configured deploy.yml workflow in the repository handles everything automatically when you are ready to deploy to GitHub Pages.",
-  "updatedAt":  "2026-10-22T00:18:34.308416353Z",
+  "summary":  "Revised implementation plan locking in Approach B (100% bundled offline dictionary of ~25,000–35,000 modern English base words) with usage examples removed (providing only definitions and parts of speech), plus the GitHub Actions deployment fix.",
+  "updatedAt":  "2026-10-22T19:37:44.048925168Z",
   "requestFeedback":  true,
   "userFacing":  true
 }

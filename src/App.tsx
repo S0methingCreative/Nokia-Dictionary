@@ -91,7 +91,6 @@ export default function App() {
     setKeypadNotice(null);
 
     if (callStage !== 'IDLE') {
-      // Pressing TALK while already on a call does nothing or restarts greeting
       return;
     }
 
@@ -150,11 +149,10 @@ export default function App() {
     }
   }, [callStage]);
 
-  // Trigger live Dictionary API definition lookup & TTS readout
+  // Trigger bundled offline dictionary lookup & TTS readout (Definition & Part of Speech only)
   const triggerWordLookup = useCallback(async (word: string) => {
     const reqId = ++lookupReqIdRef.current;
     setCallStage('LOADING_WORD');
-    soundEngine.speakOperatorText(`Looking up ${word}.`, 120);
 
     const entry = await fetchWordDefinition(word);
     if (lookupReqIdRef.current !== reqId) return;
@@ -162,16 +160,12 @@ export default function App() {
     setSelectedWordEntry(entry);
     setCallStage('WORD_DEFINITION');
 
-    const exampleSpeech =
-      entry.example && entry.example !== 'None recorded'
-        ? ` Usage example: ${entry.example}.`
-        : '';
     const spokenEntry =
       `${entry.word}. ` +
       `Part of speech: ${entry.partOfSpeech}. ` +
-      `Definition: ${entry.definition}.${exampleSpeech}`;
+      `Definition: ${entry.definition}`;
 
-    soundEngine.speakOperatorText(spokenEntry, 150);
+    soundEngine.speakOperatorText(spokenEntry, 140);
   }, []);
 
   // Handle keypad presses ('1'-'9', '*', '0', '#')
@@ -265,10 +259,8 @@ export default function App() {
         }
 
         if (chosenBucket.isSingleWord) {
-          // Reached the target word!
           triggerWordLookup(chosenBucket.firstWord);
         } else {
-          // Drill one level deeper into this 1/9th slice
           const nextPool = chosenBucket.words;
           const nextDepth = drillDepth + 1;
           setCurrentWordPool(nextPool);
@@ -286,19 +278,15 @@ export default function App() {
       // 4. WORD_DEFINITION: If already viewing a definition, pressing 1 repeats it
       if (callStage === 'WORD_DEFINITION' && selectedWordEntry) {
         if (num === 1) {
-          const exampleSpeech =
-            selectedWordEntry.example && selectedWordEntry.example !== 'None recorded'
-              ? ` Usage example: ${selectedWordEntry.example}.`
-              : '';
           const spokenEntry =
             `${selectedWordEntry.word}. ` +
             `Part of speech: ${selectedWordEntry.partOfSpeech}. ` +
-            `Definition: ${selectedWordEntry.definition}.${exampleSpeech}`;
+            `Definition: ${selectedWordEntry.definition}`;
           soundEngine.speakOperatorText(spokenEntry, 140);
         } else {
           setKeypadNotice('Press 1 to repeat, or C to end call.');
           soundEngine.speakOperatorText(
-            'Press 1 to repeat this entry, or press C to hang up.',
+            'Press 1 to repeat this definition, or press C to hang up.',
             140
           );
         }
@@ -387,7 +375,7 @@ export default function App() {
           ? `SELECT WORD (1–${buckets.length})`
           : `LETTER ${selectedLetter} (${currentWordPool.length.toLocaleString()}W)`,
         operatorSubtext: isFinalList
-          ? 'Press 1–9 to hear word entry:'
+          ? 'Press 1–9 to hear definition:'
           : 'Press 1–9 to narrow alphabetical range:',
         menuOptions: buckets.map((b) => ({
           key: b.key,
@@ -401,10 +389,10 @@ export default function App() {
 
     if (callStage === 'WORD_DEFINITION' && selectedWordEntry) {
       return {
-        menuPathCode: `ENTRY`,
-        operatorHeadline: selectedWordEntry.word.toUpperCase(),
-        operatorSubtext: `Pronounced ${selectedWordEntry.phonetic}`,
-        menuOptions: [{ key: 1, label: 'Repeat voice readout' }],
+        menuPathCode: `DEF`,
+        operatorHeadline: `ENTRY · ${selectedWordEntry.word.toUpperCase()}`,
+        operatorSubtext: '',
+        menuOptions: [{ key: 1, label: 'Repeat definition' }],
       };
     }
 
