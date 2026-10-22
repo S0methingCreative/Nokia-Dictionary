@@ -1,6 +1,6 @@
 {
-  "summary":  "Customized GitHub Pages deployment plan specifically tailored for https://github.com/S0methingCreative/Nokia-Dictionary/ with relative base path in vite.config.ts and automated GitHub Actions workflow file.",
-  "updatedAt":  "2026-10-21T23:04:47.941635888Z",
+  "summary":  "Reference guide clarifying that neither Jekyll nor the Static HTML starter template is needed, as the pre-configured deploy.yml workflow in the repository handles everything automatically when you are ready to deploy to GitHub Pages.",
+  "updatedAt":  "2026-10-22T00:18:34.308416353Z",
   "requestFeedback":  true,
   "userFacing":  true
 }
