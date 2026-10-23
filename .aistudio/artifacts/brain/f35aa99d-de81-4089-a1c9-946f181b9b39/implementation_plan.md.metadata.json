@@ -1,6 +1,6 @@
 {
-  "summary":  "Revised implementation plan locking in Approach B (100% bundled offline dictionary of ~25,000–35,000 modern English base words) with usage examples removed (providing only definitions and parts of speech), plus the GitHub Actions deployment fix.",
-  "updatedAt":  "2026-10-22T19:37:44.048925168Z",
+  "summary":  "Implementation plan for the authentic audio-only Nokia 3310 in-call screen. Removes all on-screen menu text, options, and definition readouts from the LCD during calls. Replaces the display with an authentic retro cellular in-call interface featuring live call timer, dialed digits, phone icon, and carrier line, requiring callers to navigate purely by ear.",
+  "updatedAt":  "2026-10-23T14:14:45.624500094Z",
   "requestFeedback":  true,
   "userFacing":  true
 }

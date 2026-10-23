@@ -1,6 +1,5 @@
-import React, { useRef, useEffect } from 'react';
+import React from 'react';
 import { Phone, PhoneOff, ChevronUp, ChevronDown } from 'lucide-react';
-import { DictionaryEntry, TOTAL_DICTIONARY_WORDS } from '../data/dictionaryData';
 
 export type CallStage =
   | 'IDLE'
@@ -11,22 +10,11 @@ export type CallStage =
   | 'LOADING_WORD'
   | 'WORD_DEFINITION';
 
-export interface LcdMenuOption {
-  key: number; // 1-9
-  label: string;
-  sublabel?: string;
-}
-
 interface NokiaHandsetProps {
   callStage: CallStage;
   callSeconds: number;
   activeKey: string | null;
-  menuPathCode: string;
-  operatorHeadline: string;
-  operatorSubtext: string;
-  menuOptions: LcdMenuOption[];
-  selectedWordEntry: DictionaryEntry | null;
-  keypadNotice: string | null;
+  dialedDigits: string;
   onPressTalk: () => void;
   onPressClear: () => void;
   onPressDigit: (digit: string) => void;
@@ -55,25 +43,12 @@ export const NokiaHandset: React.FC<NokiaHandsetProps> = ({
   callStage,
   callSeconds,
   activeKey,
-  menuPathCode,
-  operatorHeadline,
-  operatorSubtext,
-  menuOptions,
-  selectedWordEntry,
-  keypadNotice,
+  dialedDigits,
   onPressTalk,
   onPressClear,
   onPressDigit,
 }) => {
-  const lcdContainerRef = useRef<HTMLDivElement>(null);
   const isInCall = callStage !== 'IDLE';
-
-  // Reset LCD position to top when stage changes
-  useEffect(() => {
-    if (lcdContainerRef.current) {
-      lcdContainerRef.current.scrollTop = 0;
-    }
-  }, [callStage, menuPathCode, selectedWordEntry]);
 
   const formatTimer = (secs: number) => {
     const mins = Math.floor(secs / 60)
@@ -115,8 +90,9 @@ export const NokiaHandset: React.FC<NokiaHandsetProps> = ({
           <div className="rounded-[18px] bg-[#2a3441] p-2 shadow-[inset_0_3px_6px_rgba(0,0,0,0.75)] border border-[#475569]">
             {/* Monochrome Olive-Green Backlit LCD Screen */}
             <div className="nokia-lcd-surface relative h-[248px] w-full rounded-[12px] p-2.5 flex flex-col justify-between font-mono overflow-hidden border border-[#566b44]">
-              {/* Top LCD Status Bar: Signal Bars | Carrier/Timer | Menu Index & Battery */}
+              {/* Top LCD Status Bar: Signal Bars | Timer or Carrier | Battery Meter */}
               <div className="flex items-center justify-between border-b border-[#142311]/25 pb-1 text-[11px] font-bold leading-none shrink-0">
+                {/* Cellular Signal Bars (Left) */}
                 <div className="flex items-end gap-0.5" title="Full Cellular Signal">
                   <span className="w-1 h-1.5 bg-[#142311]" />
                   <span className="w-1 h-2 bg-[#142311]" />
@@ -124,144 +100,102 @@ export const NokiaHandset: React.FC<NokiaHandsetProps> = ({
                   <span className="w-1 h-3.5 bg-[#142311]" />
                 </div>
 
-                <div className="flex items-center gap-1.5 tracking-tight">
-                  {isInCall ? (
-                    <span>555-DICT · {formatTimer(callSeconds)}</span>
+                {/* Center Header: Call Timer during call, NOKIA in Standby */}
+                <div className="flex items-center gap-1 tracking-wider text-[11px]">
+                  {isInCall && callStage !== 'DIALING' ? (
+                    <span className="font-bold">{formatTimer(callSeconds)}</span>
                   ) : (
-                    <span>PHONE DICTIONARY</span>
+                    <span className="font-bold tracking-widest">NOKIA</span>
                   )}
                 </div>
 
-                <div className="flex items-center gap-1.5">
-                  {menuPathCode && (
-                    <span className="text-[10px] font-bold opacity-85">
-                      {menuPathCode}
-                    </span>
-                  )}
-                  <div className="flex items-end gap-0.5" title="Full Battery">
-                    <span className="w-1 h-3.5 bg-[#142311]" />
-                    <span className="w-1 h-2.5 bg-[#142311]" />
-                    <span className="w-1 h-2 bg-[#142311]" />
-                    <span className="w-1 h-1.5 bg-[#142311]" />
-                  </div>
+                {/* Battery Meter (Right) */}
+                <div className="flex items-end gap-0.5" title="Full Battery">
+                  <span className="w-1 h-3.5 bg-[#142311]" />
+                  <span className="w-1 h-2.5 bg-[#142311]" />
+                  <span className="w-1 h-2 bg-[#142311]" />
+                  <span className="w-1 h-1.5 bg-[#142311]" />
                 </div>
               </div>
 
-              {/* Middle LCD Content Area */}
-              <div
-                ref={lcdContainerRef}
-                className="lcd-scroll flex-1 overflow-y-auto my-1 pr-0.5 flex flex-col justify-start text-[#142311]"
-              >
+              {/* Middle LCD Content Area: Audio-Only Call Experience */}
+              <div className="flex-1 my-1 flex flex-col items-center justify-center text-center text-[#142311]">
+                {/* 1. Standby / On-Hook Screen */}
                 {callStage === 'IDLE' && (
-                  <div className="h-full flex flex-col items-center justify-center text-center py-2">
-                    <div className="border-2 border-[#142311] px-2.5 py-0.5 text-[11px] font-bold tracking-wider mb-2">
+                  <div className="h-full flex flex-col items-center justify-center py-2 animate-fadeIn">
+                    <div className="border-2 border-[#142311] px-3 py-1 text-[13px] font-bold tracking-wider mb-2">
                       1-800-555-DICT
                     </div>
-                    <p className="text-[13px] font-bold leading-tight mb-1">
-                      ENGLISH DICTIONARY
+                    <p className="text-[12px] font-bold leading-tight mb-1 tracking-tight">
+                      PHONE DICTIONARY
                     </p>
-                    <p className="text-[10px] leading-snug opacity-90 max-w-[235px]">
-                      Press TALK to call the automated {TOTAL_DICTIONARY_WORDS.toLocaleString()}-word dictionary.
+                    <p className="text-[10px] leading-snug opacity-80 max-w-[200px]">
+                      Press TALK to dial hotline
                     </p>
                   </div>
                 )}
 
+                {/* 2. Dialing Screen */}
                 {callStage === 'DIALING' && (
-                  <div className="h-full flex flex-col items-center justify-center text-center py-3">
-                    <Phone className="w-6 h-6 stroke-[2.5] mb-1.5 animate-bounce" />
-                    <p className="text-[13px] font-bold tracking-tight">
-                      Calling Dictionary...
+                  <div className="h-full flex flex-col items-center justify-center py-2">
+                    <Phone className="w-7 h-7 stroke-[2.5] mb-2 animate-bounce text-[#142311]" />
+                    <p className="text-[14px] font-bold tracking-wide">
+                      Calling...
                     </p>
-                    <p className="text-[10px] leading-tight mt-1 opacity-85">
-                      Connecting to automated voice tree...
-                    </p>
-                  </div>
-                )}
-
-                {callStage === 'LOADING_WORD' && (
-                  <div className="h-full flex flex-col items-center justify-center text-center py-3">
-                    <p className="text-[12px] font-bold tracking-tight">
-                      Retrieving entry...
-                    </p>
-                    <p className="text-[10px] leading-tight mt-1 opacity-85">
-                      Please hold the line.
+                    <p className="text-[12px] font-bold tracking-wider mt-1 opacity-90">
+                      555-DICT
                     </p>
                   </div>
                 )}
 
-                {isInCall &&
-                  callStage !== 'DIALING' &&
-                  callStage !== 'LOADING_WORD' && (
-                    <div className="space-y-1 text-left">
-                      {/* Operator Prompt Header */}
-                      <div className="bg-[#142311] text-[#93b078] px-1.5 py-0.5 text-[10px] font-bold leading-tight flex items-center justify-between">
-                        <span className="truncate">{operatorHeadline}</span>
-                      </div>
+                {/* 3. Authentic In-Call Screen (No menu or definition cheat text!) */}
+                {isInCall && callStage !== 'DIALING' && (
+                  <div className="h-full w-full flex flex-col items-center justify-center py-2">
+                    <div className="flex items-center justify-center mb-1">
+                      <Phone className="w-6 h-6 stroke-[2.5] fill-[#142311]/15 text-[#142311]" />
+                    </div>
 
-                      {/* Operator Spoken Text */}
-                      {operatorSubtext && (
-                        <p className="text-[10px] leading-tight font-semibold">
-                          {operatorSubtext}
-                        </p>
-                      )}
+                    <div className="text-[15px] font-bold tracking-wider leading-tight">
+                      555-DICT
+                    </div>
+                    <div className="text-[10px] uppercase font-bold tracking-widest opacity-75 mt-0.5">
+                      Active Call
+                    </div>
 
-                      {/* Notice if caller pressed *, 0, #, or invalid key */}
-                      {keypadNotice && (
-                        <div className="border border-[#142311] bg-[#142311]/10 px-1.5 py-0.5 text-[10px] font-bold">
-                          ! {keypadNotice}
-                        </div>
-                      )}
-
-                      {/* Selected Word Full Readout (Definition & Part of Speech Only) */}
-                      {callStage === 'WORD_DEFINITION' && selectedWordEntry && (
-                        <div className="border-t border-[#142311]/40 pt-1.5 mt-1 space-y-1.5">
-                          <div className="flex items-baseline justify-between gap-1">
-                            <span className="text-[12px] font-bold uppercase tracking-tight">
-                              {selectedWordEntry.word}
-                            </span>
-                            <span className="text-[10px] italic font-bold">
-                              [{selectedWordEntry.partOfSpeech}]
-                            </span>
-                          </div>
-                          <p className="text-[11px] leading-snug font-bold">
-                            {selectedWordEntry.definition}
-                          </p>
-                        </div>
-                      )}
-
-                      {/* 1-9 Menu Breakdown List */}
-                      {menuOptions.length > 0 && (
-                        <div className="grid grid-cols-1 gap-0 pt-0.5">
-                          {menuOptions.map((opt) => (
-                            <div
-                              key={opt.key}
-                              className="w-full text-left flex items-baseline justify-between px-0.5 py-[1px] text-[10px] font-bold leading-tight"
-                            >
-                              <span className="truncate">
-                                {opt.key}: {opt.label}
-                              </span>
-                              {opt.sublabel && (
-                                <span className="text-[9px] opacity-75 ml-1 shrink-0">
-                                  {opt.sublabel}
-                                </span>
-                              )}
-                            </div>
-                          ))}
-                        </div>
+                    {/* Dialed DTMF Digits display */}
+                    <div className="mt-3 w-full px-2 py-1.5 min-h-[34px] flex items-center justify-center border-t border-b border-[#142311]/25 bg-[#142311]/5">
+                      {dialedDigits ? (
+                        <span className="text-[15px] font-bold tracking-[0.3em] text-[#142311]">
+                          {dialedDigits}
+                        </span>
+                      ) : (
+                        <span className="text-[10px] font-bold uppercase tracking-wider opacity-60">
+                          [ Listening ]
+                        </span>
                       )}
                     </div>
-                  )}
+                  </div>
+                )}
               </div>
 
               {/* Bottom LCD Softkey Action Bar */}
-              <div className="flex items-center justify-between border-t border-[#142311]/25 pt-1 text-[10px] font-bold leading-none shrink-0">
-                <span className="opacity-85">
-                  {isInCall ? 'C: End Call' : 'On Hook'}
-                </span>
-                <span className="uppercase tracking-wider underline decoration-2">
-                  {callStage === 'IDLE' ? 'TALK' : 'KEYS 1–9'}
-                </span>
-                <span className="opacity-85">37K WORDS</span>
+              <div className="flex items-center justify-between border-t border-[#142311]/25 pt-1 text-[11px] font-bold leading-none shrink-0 px-1">
+                {callStage === 'IDLE' ? (
+                  <>
+                    <span>Menu</span>
+                    <span>Names</span>
+                  </>
+                ) : callStage === 'DIALING' ? (
+                  <>
+                    <span className="opacity-0">.</span>
+                    <span>End</span>
+                  </>
+                ) : (
+                  <>
+                    <span>Options</span>
+                    <span>End</span>
+                  </>
+                )}
               </div>
             </div>
           </div>

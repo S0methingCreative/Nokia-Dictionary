@@ -5,7 +5,7 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Volume2, VolumeX } from 'lucide-react';
-import { NokiaHandset, CallStage, LcdMenuOption } from './components/NokiaHandset';
+import { NokiaHandset, CallStage } from './components/NokiaHandset';
 import {
   LETTER_BUCKETS,
   getWordsForLetter,
@@ -20,6 +20,7 @@ import { soundEngine } from './utils/soundEffects';
 export default function App() {
   const [callStage, setCallStage] = useState<CallStage>('IDLE');
   const [callSeconds, setCallSeconds] = useState<number>(0);
+  const [dialedDigits, setDialedDigits] = useState<string>('');
 
   // Active 1-9 Drill-Down State
   const [selectedBucket, setSelectedBucket] = useState<LetterBucket | null>(null);
@@ -30,7 +31,6 @@ export default function App() {
 
   // Hardware & Audio State
   const [activeKey, setActiveKey] = useState<string | null>(null);
-  const [keypadNotice, setKeypadNotice] = useState<string | null>(null);
   const [isMuted, setIsMuted] = useState<boolean>(false);
 
   const dialTimeoutRef = useRef<number | null>(null);
@@ -88,7 +88,6 @@ export default function App() {
   // Start call when TALK is pressed
   const handlePressTalk = useCallback(() => {
     flashKey('TALK');
-    setKeypadNotice(null);
 
     if (callStage !== 'IDLE') {
       return;
@@ -98,6 +97,7 @@ export default function App() {
     soundEngine.playRingbackTone();
     setCallStage('DIALING');
     setCallSeconds(0);
+    setDialedDigits('');
     setSelectedBucket(null);
     setSelectedLetter(null);
     setCurrentWordPool([]);
@@ -114,20 +114,18 @@ export default function App() {
 
       const greetingSpeech =
         'Hello, and welcome to the Phone Dictionary. ' +
-        'Normally you would press 1 for A, press 2 for B, and so on for every letter. ' +
-        'Using only keys 1 through 9: ' +
+        'Please listen carefully to the options. ' +
         LETTER_BUCKETS.map(
           (b) => `Press ${b.key} for ${b.spokenLabel}.`
         ).join(' ');
 
-      soundEngine.speakOperatorText(greetingSpeech, 180);
+      soundEngine.speakOperatorText(greetingSpeech, 170);
     }, 700);
   }, [callStage]);
 
-  // (C) Key Strictly Ends Call
+  // (C) Key Strictly Ends Call (Hang up and call back)
   const handlePressClear = useCallback(() => {
     flashKey('C');
-    setKeypadNotice(null);
     lookupReqIdRef.current += 1;
 
     if (dialTimeoutRef.current) {
@@ -139,6 +137,7 @@ export default function App() {
     if (callStage !== 'IDLE') {
       soundEngine.playHangupTone();
       setCallStage('IDLE');
+      setDialedDigits('');
       setSelectedBucket(null);
       setSelectedLetter(null);
       setCurrentWordPool([]);
@@ -163,7 +162,8 @@ export default function App() {
     const spokenEntry =
       `${entry.word}. ` +
       `Part of speech: ${entry.partOfSpeech}. ` +
-      `Definition: ${entry.definition}`;
+      `Definition: ${entry.definition}. ` +
+      `Press 1 to repeat this definition, or press End to hang up.`;
 
     soundEngine.speakOperatorText(spokenEntry, 140);
   }, []);
@@ -176,7 +176,6 @@ export default function App() {
       soundEngine.playDTMF(digit);
 
       if (callStage === 'IDLE') {
-        setKeypadNotice('Press TALK to call dictionary.');
         return;
       }
 
@@ -184,12 +183,13 @@ export default function App() {
         return;
       }
 
+      // Append pressed digit to the on-screen dialed DTMF buffer
+      setDialedDigits((prev) => (prev ? `${prev}  ${digit}` : digit));
+
       // Enforce strict 1-9 entry rule
       if (digit === '*' || digit === '0' || digit === '#') {
-        const msg = `Only keys 1–9 are allowed.`;
-        setKeypadNotice(msg);
         soundEngine.speakOperatorText(
-          'Only keys 1 through 9 are active entry options.',
+          'Invalid selection. Only keys 1 through 9 are active. Please press End to hang up and call back.',
           150
         );
         return;
@@ -198,19 +198,25 @@ export default function App() {
       const num = parseInt(digit, 10);
       if (isNaN(num) || num < 1 || num > 9) return;
 
-      setKeypadNotice(null);
-
       // 1. BUCKET_SELECT: Choose 1-9 letter bucket (A-C ... Y-Z)
       if (callStage === 'BUCKET_SELECT') {
         const bucket = LETTER_BUCKETS.find((b) => b.key === num);
-        if (!bucket) return;
+        if (!bucket) {
+          soundEngine.speakOperatorText(
+            'Invalid selection. Please press End to hang up and call back.',
+            150
+          );
+          return;
+        }
 
         setSelectedBucket(bucket);
         setCallStage('LETTER_SELECT');
 
-        const letterSpeech = bucket.letters
-          .map((ltr, idx) => `Press ${idx + 1} for ${ltr}.`)
-          .join(' ');
+        const letterSpeech =
+          `Letters ${bucket.label}. ` +
+          bucket.letters
+            .map((ltr, idx) => `Press ${idx + 1} for ${ltr}.`)
+            .join(' ');
         soundEngine.speakOperatorText(letterSpeech, 160);
         return;
       }
@@ -219,11 +225,8 @@ export default function App() {
       if (callStage === 'LETTER_SELECT' && selectedBucket) {
         const chosenLetter = selectedBucket.letters[num - 1];
         if (!chosenLetter) {
-          const maxKey = selectedBucket.letters.length;
-          const err = `Press 1–${maxKey} for ${selectedBucket.letters.join('/')}.`;
-          setKeypadNotice(err);
           soundEngine.speakOperatorText(
-            `Invalid entry. Please press 1 through ${maxKey}.`,
+            'Invalid selection. Please press End to hang up and call back.',
             150
           );
           return;
@@ -237,7 +240,7 @@ export default function App() {
 
         const initialBuckets = partitionWordsIntoNine(wordsInLetter);
         speakNineWayBuckets(
-          `Letter ${chosenLetter}. ${wordsInLetter.length.toLocaleString()} words.`,
+          `Letter ${chosenLetter}. ${wordsInLetter.length.toLocaleString()} words. Please choose a range:`,
           initialBuckets
         );
         return;
@@ -249,10 +252,8 @@ export default function App() {
         const chosenBucket = buckets.find((b) => b.key === num);
 
         if (!chosenBucket) {
-          const err = `Please press 1–${buckets.length}.`;
-          setKeypadNotice(err);
           soundEngine.speakOperatorText(
-            `Please press a number from 1 to ${buckets.length}.`,
+            'Invalid selection. Please press End to hang up and call back.',
             150
           );
           return;
@@ -281,12 +282,12 @@ export default function App() {
           const spokenEntry =
             `${selectedWordEntry.word}. ` +
             `Part of speech: ${selectedWordEntry.partOfSpeech}. ` +
-            `Definition: ${selectedWordEntry.definition}`;
+            `Definition: ${selectedWordEntry.definition}. ` +
+            `Press 1 to repeat this definition, or press End to hang up.`;
           soundEngine.speakOperatorText(spokenEntry, 140);
         } else {
-          setKeypadNotice('Press 1 to repeat, or C to end call.');
           soundEngine.speakOperatorText(
-            'Press 1 to repeat this definition, or press C to hang up.',
+            'Invalid option. Press 1 to repeat this definition, or press End to hang up and call back.',
             140
           );
         }
@@ -304,7 +305,7 @@ export default function App() {
     ]
   );
 
-  // Physical Keyboard Support (Keys 1-9, *, 0, #, Enter for Talk, Backspace/Escape for C)
+  // Physical Keyboard Support (Keys 1-9, *, 0, #, Enter for Talk, Backspace/Escape/C for End)
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
       if (
@@ -330,82 +331,6 @@ export default function App() {
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [handlePressDigit, handlePressTalk, handlePressClear]);
 
-  // Build LCD display content for current state
-  const getLcdDisplayData = (): {
-    menuPathCode: string;
-    operatorHeadline: string;
-    operatorSubtext: string;
-    menuOptions: LcdMenuOption[];
-  } => {
-    if (callStage === 'BUCKET_SELECT') {
-      return {
-        menuPathCode: 'A–Z',
-        operatorHeadline: 'WELCOME CALLER',
-        operatorSubtext: 'Press 1 for A, 2 for B... (grouped 1–9):',
-        menuOptions: LETTER_BUCKETS.map((b) => ({
-          key: b.key,
-          label: `Letters ${b.label}`,
-          sublabel: b.letters.join('·'),
-        })),
-      };
-    }
-
-    if (callStage === 'LETTER_SELECT' && selectedBucket) {
-      return {
-        menuPathCode: `GRP ${selectedBucket.key}`,
-        operatorHeadline: `LETTERS ${selectedBucket.label}`,
-        operatorSubtext: selectedBucket.letters
-          .map((ltr, idx) => `Press ${idx + 1} for ${ltr}`)
-          .join(', '),
-        menuOptions: selectedBucket.letters.map((ltr, idx) => ({
-          key: idx + 1,
-          label: `Press ${idx + 1} for ${ltr}`,
-          sublabel: `${getWordsForLetter(ltr).length.toLocaleString()}w`,
-        })),
-      };
-    }
-
-    if (callStage === 'WORD_DRILL' && selectedLetter) {
-      const buckets = partitionWordsIntoNine(currentWordPool);
-      const isFinalList = buckets.every((b) => b.isSingleWord);
-
-      return {
-        menuPathCode: `${selectedLetter}·L${drillDepth}`,
-        operatorHeadline: isFinalList
-          ? `SELECT WORD (1–${buckets.length})`
-          : `LETTER ${selectedLetter} (${currentWordPool.length.toLocaleString()}W)`,
-        operatorSubtext: isFinalList
-          ? 'Press 1–9 to hear definition:'
-          : 'Press 1–9 to narrow alphabetical range:',
-        menuOptions: buckets.map((b) => ({
-          key: b.key,
-          label: b.isSingleWord
-            ? b.firstWord
-            : `${b.firstWord} – ${b.lastWord}`,
-          sublabel: b.isSingleWord ? '' : `${b.words.length.toLocaleString()}`,
-        })),
-      };
-    }
-
-    if (callStage === 'WORD_DEFINITION' && selectedWordEntry) {
-      return {
-        menuPathCode: `DEF`,
-        operatorHeadline: `ENTRY · ${selectedWordEntry.word.toUpperCase()}`,
-        operatorSubtext: '',
-        menuOptions: [{ key: 1, label: 'Repeat definition' }],
-      };
-    }
-
-    return {
-      menuPathCode: '',
-      operatorHeadline: '',
-      operatorSubtext: '',
-      menuOptions: [],
-    };
-  };
-
-  const lcdData = getLcdDisplayData();
-
   return (
     <main className="min-h-screen w-full bg-[#090d16] bg-[radial-gradient(circle_at_center,#162038_0%,#090d16_70%)] flex flex-col items-center justify-center p-4 relative overflow-hidden">
       {/* Subtle Corner Mute/Unmute Toggle */}
@@ -428,17 +353,12 @@ export default function App() {
         )}
       </button>
 
-      {/* Standalone Nokia 3310 Handset Art Piece */}
+      {/* Standalone Nokia 3310 Handset with Audio-Only In-Call Screen */}
       <NokiaHandset
         callStage={callStage}
         callSeconds={callSeconds}
         activeKey={activeKey}
-        menuPathCode={lcdData.menuPathCode}
-        operatorHeadline={lcdData.operatorHeadline}
-        operatorSubtext={lcdData.operatorSubtext}
-        menuOptions={lcdData.menuOptions}
-        selectedWordEntry={selectedWordEntry}
-        keypadNotice={keypadNotice}
+        dialedDigits={dialedDigits}
         onPressTalk={handlePressTalk}
         onPressClear={handlePressClear}
         onPressDigit={handlePressDigit}
